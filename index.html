@@ -25,32 +25,45 @@
           const [lowGMSenior, setLowGMSenior] = useState(12);
           const [lowGMJunior, setLowGMJunior] = useState(17);
           const [startingHeadcount, setStartingHeadcount] = useState(53);
+          const [attritionRate, setAttritionRate] = useState(15);
+          const [burdenRate, setBurdenRate] = useState(30);
           
-          const highGMSeniorCost = 180000;
-          const highGMMidCost = 120000;
-          const lowGMSeniorCost = 120000;
-          const lowGMJuniorCost = 80000;
+          const [highGMSeniorCost, setHighGMSeniorCost] = useState(180000);
+          const [highGMMidCost, setHighGMMidCost] = useState(120000);
+          const [lowGMSeniorCost, setLowGMSeniorCost] = useState(120000);
+          const [lowGMJuniorCost, setLowGMJuniorCost] = useState(80000);
+          
+          const [monthlyHires, setMonthlyHires] = useState({
+            jan: null, feb: null, mar: null, apr: null, may: null, jun: null,
+            jul: null, aug: null, sep: null, oct: null, nov: null, dec: null
+          });
           
           const monthlySalesPlan = [
-            { month: 'Jan', revenue: 1316023 },
-            { month: 'Feb', revenue: 1630577 },
-            { month: 'Mar', revenue: 1820671 },
-            { month: 'Apr', revenue: 1916537 },
-            { month: 'May', revenue: 1943391 },
-            { month: 'Jun', revenue: 1761971 },
-            { month: 'Jul', revenue: 1522527 },
-            { month: 'Aug', revenue: 1341867 },
-            { month: 'Sep', revenue: 1381267 },
-            { month: 'Oct', revenue: 1332194 },
-            { month: 'Nov', revenue: 1291040 },
-            { month: 'Dec', revenue: 1271040 }
+            { month: 'Jan', revenue: 1316023, key: 'jan' },
+            { month: 'Feb', revenue: 1630577, key: 'feb' },
+            { month: 'Mar', revenue: 1820671, key: 'mar' },
+            { month: 'Apr', revenue: 1916537, key: 'apr' },
+            { month: 'May', revenue: 1943391, key: 'may' },
+            { month: 'Jun', revenue: 1761971, key: 'jun' },
+            { month: 'Jul', revenue: 1522527, key: 'jul' },
+            { month: 'Aug', revenue: 1341867, key: 'aug' },
+            { month: 'Sep', revenue: 1381267, key: 'sep' },
+            { month: 'Oct', revenue: 1332194, key: 'oct' },
+            { month: 'Nov', revenue: 1291040, key: 'nov' },
+            { month: 'Dec', revenue: 1271040, key: 'dec' }
           ];
           
           const highGMRevenue = totalRevenue * (highGMRevenuePct / 100);
           const lowGMRevenue = totalRevenue - highGMRevenue;
           
-          const highGMCogs = (highGMSenior * highGMSeniorCost) + (highGMMid * highGMMidCost);
-          const lowGMCogs = (lowGMSenior * lowGMSeniorCost) + (lowGMJunior * lowGMJuniorCost);
+          const burdenMultiplier = 1 + (burdenRate / 100);
+          const highGMSeniorLoadedCost = highGMSeniorCost * burdenMultiplier;
+          const highGMMidLoadedCost = highGMMidCost * burdenMultiplier;
+          const lowGMSeniorLoadedCost = lowGMSeniorCost * burdenMultiplier;
+          const lowGMJuniorLoadedCost = lowGMJuniorCost * burdenMultiplier;
+          
+          const highGMCogs = (highGMSenior * highGMSeniorLoadedCost) + (highGMMid * highGMMidLoadedCost);
+          const lowGMCogs = (lowGMSenior * lowGMSeniorLoadedCost) + (lowGMJunior * lowGMJuniorLoadedCost);
           const totalCogs = highGMCogs + lowGMCogs;
           
           const grossProfit = totalRevenue - totalCogs;
@@ -65,7 +78,14 @@
           const highGMHeadcount = highGMSenior + highGMMid;
           const lowGMHeadcount = lowGMSenior + lowGMJunior;
           const totalHeadcount = highGMHeadcount + lowGMHeadcount;
+          
+          const annualAttrition = Math.round((startingHeadcount + totalHeadcount) / 2 * (attritionRate / 100));
+          const targetEndingHeadcount = totalHeadcount;
+          const grossHiresNeeded = Math.max(0, targetEndingHeadcount - startingHeadcount + annualAttrition);
           const netNewHires = Math.max(0, totalHeadcount - startingHeadcount);
+          
+          const highGMAvgComp = highGMHeadcount > 0 ? highGMCogs / highGMHeadcount : 0;
+          const lowGMAvgComp = lowGMHeadcount > 0 ? lowGMCogs / lowGMHeadcount : 0;
           
           const targetGM = 35;
           const isOnTarget = Math.abs(gmPercent - targetGM) < 0.5;
@@ -73,35 +93,72 @@
           const fmt = (n) => `$${(n / 1000000).toFixed(2)}M`;
           const fmtPct = (n) => `${n.toFixed(1)}%`;
           
+          const updateMonthlyHire = (monthKey, value) => {
+            const numValue = value === '' ? null : parseInt(value);
+            setMonthlyHires(prev => ({
+              ...prev,
+              [monthKey]: numValue
+            }));
+          };
+          
           const calculateHiringTimeline = () => {
             const timeline = [];
-            
-            const janHires = 13;
-            const febHires = 20;
+            const monthlyAttritionRate = attritionRate / 12 / 100;
             
             let cumulative = startingHeadcount;
+            let totalModeledHires = 0;
+            const modeledPlan = [];
             
             for (let i = 0; i < 12; i++) {
-              const month = monthlySalesPlan[i].month;
-              let hires = 0;
+              const monthData = monthlySalesPlan[i];
+              const monthlyTerms = Math.round(cumulative * monthlyAttritionRate);
               
-              if (month === 'Jan') {
-                hires = janHires;
-                cumulative = 66;
-              } else if (month === 'Feb') {
-                hires = febHires;
-                cumulative = 86;
-              } else if (cumulative < totalHeadcount) {
-                const remaining = totalHeadcount - cumulative;
-                hires = Math.min(5, remaining);
-                cumulative += hires;
-              } else {
-                cumulative = totalHeadcount;
+              let modeledHires = 0;
+              if (i < 6 && totalModeledHires < grossHiresNeeded) {
+                const hiresPerMonth = Math.ceil(grossHiresNeeded / 6);
+                modeledHires = Math.min(hiresPerMonth, grossHiresNeeded - totalModeledHires);
               }
               
+              totalModeledHires += modeledHires;
+              modeledPlan.push(modeledHires);
+              cumulative = cumulative + modeledHires - monthlyTerms;
+            }
+            
+            cumulative = startingHeadcount;
+            let totalActualHires = 0;
+            let remainingNeeded = grossHiresNeeded;
+            
+            for (let i = 0; i < 12; i++) {
+              const monthData = monthlySalesPlan[i];
+              const monthKey = monthData.key;
+              const monthlyTerms = Math.round(cumulative * monthlyAttritionRate);
+              
+              let actualHires;
+              if (monthlyHires[monthKey] !== null) {
+                actualHires = monthlyHires[monthKey];
+              } else {
+                const remainingMonths = 12 - i;
+                if (remainingNeeded > 0 && remainingMonths > 0) {
+                  const hiresPerMonth = Math.ceil(remainingNeeded / Math.min(6, remainingMonths));
+                  actualHires = Math.min(hiresPerMonth, remainingNeeded);
+                } else {
+                  actualHires = 0;
+                }
+              }
+              
+              totalActualHires += actualHires;
+              remainingNeeded = grossHiresNeeded - totalActualHires;
+              cumulative = cumulative + actualHires - monthlyTerms;
+              
               timeline.push({
-                ...monthlySalesPlan[i],
-                totalHires: hires,
+                month: monthData.month,
+                monthKey: monthKey,
+                revenue: monthData.revenue,
+                modeledHires: modeledPlan[i],
+                actualHires: actualHires,
+                isOverride: monthlyHires[monthKey] !== null,
+                terms: monthlyTerms,
+                netHires: actualHires - monthlyTerms,
                 cumulativeHeadcount: cumulative
               });
             }
@@ -190,6 +247,47 @@
                     </div>
                   </div>
                 </div>
+                
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Annual Attrition Rate %</label>
+                    <input
+                      type="number"
+                      value={attritionRate}
+                      onChange={(e) => setAttritionRate(parseFloat(e.target.value) || 0)}
+                      className="w-full px-4 py-2 border rounded text-lg"
+                      step="1"
+                      min="0"
+                      max="50"
+                    />
+                    <div className="text-xs text-gray-500 mt-1">
+                      Expected attrition: ~{annualAttrition} people
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Burden Rate % (Benefits, Taxes, etc.)</label>
+                    <input
+                      type="number"
+                      value={burdenRate}
+                      onChange={(e) => setBurdenRate(parseFloat(e.target.value) || 0)}
+                      className="w-full px-4 py-2 border rounded text-lg"
+                      step="5"
+                      min="0"
+                      max="100"
+                    />
+                    <div className="text-xs text-gray-500 mt-1">
+                      Multiplies base salary by {burdenMultiplier.toFixed(2)}x
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mt-4 p-3 bg-blue-50 rounded border border-blue-200">
+                  <div className="text-sm font-semibold text-blue-900">Gross Hires Needed</div>
+                  <div className="text-2xl font-bold text-blue-600">{grossHiresNeeded}</div>
+                  <div className="text-xs text-gray-600 mt-1">
+                    To reach {targetEndingHeadcount} after {annualAttrition} expected departures
+                  </div>
+                </div>
               </div>
               
               <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
@@ -235,7 +333,19 @@
                 
                 <div className="grid grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-semibold mb-2">Senior Consultants ($180k each)</label>
+                    <label className="block text-sm font-semibold mb-2">Senior Consultants</label>
+                    <div className="mb-2">
+                      <label className="block text-xs text-gray-600 mb-1">Base salary per person ($)</label>
+                      <input
+                        type="number"
+                        value={highGMSeniorCost}
+                        onChange={(e) => setHighGMSeniorCost(parseInt(e.target.value) || 0)}
+                        className="w-full px-3 py-2 border rounded text-sm"
+                        step="1000"
+                        min="0"
+                      />
+                    </div>
+                    <label className="block text-xs text-gray-600 mb-1">Headcount</label>
                     <input
                       type="number"
                       value={highGMSenior}
@@ -244,11 +354,26 @@
                       min="0"
                     />
                     <div className="text-sm text-gray-600 mt-2 text-center">
-                      Cost: ${(highGMSenior * highGMSeniorCost).toLocaleString()}
+                      Base Cost: ${(highGMSenior * highGMSeniorCost).toLocaleString()}
+                    </div>
+                    <div className="text-sm font-bold text-gray-800 mt-1 text-center">
+                      Loaded Cost: ${(highGMSenior * highGMSeniorLoadedCost).toLocaleString()}
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold mb-2">Mid-Level Consultants ($120k each)</label>
+                    <label className="block text-sm font-semibold mb-2">Mid-Level Consultants</label>
+                    <div className="mb-2">
+                      <label className="block text-xs text-gray-600 mb-1">Base salary per person ($)</label>
+                      <input
+                        type="number"
+                        value={highGMMidCost}
+                        onChange={(e) => setHighGMMidCost(parseInt(e.target.value) || 0)}
+                        className="w-full px-3 py-2 border rounded text-sm"
+                        step="1000"
+                        min="0"
+                      />
+                    </div>
+                    <label className="block text-xs text-gray-600 mb-1">Headcount</label>
                     <input
                       type="number"
                       value={highGMMid}
@@ -257,16 +382,23 @@
                       min="0"
                     />
                     <div className="text-sm text-gray-600 mt-2 text-center">
-                      Cost: ${(highGMMid * highGMMidCost).toLocaleString()}
+                      Base Cost: ${(highGMMid * highGMMidCost).toLocaleString()}
+                    </div>
+                    <div className="text-sm font-bold text-gray-800 mt-1 text-center">
+                      Loaded Cost: ${(highGMMid * highGMMidLoadedCost).toLocaleString()}
                     </div>
                   </div>
                 </div>
                 
                 <div className="mt-4 p-4 bg-gray-100 rounded">
-                  <div className="grid grid-cols-2 gap-4 text-center">
+                  <div className="grid grid-cols-3 gap-4 text-center">
                     <div>
                       <div className="text-sm text-gray-600">Total Headcount</div>
                       <div className="text-2xl font-bold">{highGMHeadcount}</div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-gray-600">Avg Comp/Head</div>
+                      <div className="text-2xl font-bold">${Math.round(highGMAvgComp).toLocaleString()}</div>
                     </div>
                     <div>
                       <div className="text-sm text-gray-600">Total COGS</div>
@@ -319,7 +451,19 @@
                 
                 <div className="grid grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-semibold mb-2">Senior Consultants ($120k each)</label>
+                    <label className="block text-sm font-semibold mb-2">Senior Consultants</label>
+                    <div className="mb-2">
+                      <label className="block text-xs text-gray-600 mb-1">Base salary per person ($)</label>
+                      <input
+                        type="number"
+                        value={lowGMSeniorCost}
+                        onChange={(e) => setLowGMSeniorCost(parseInt(e.target.value) || 0)}
+                        className="w-full px-3 py-2 border rounded text-sm"
+                        step="1000"
+                        min="0"
+                      />
+                    </div>
+                    <label className="block text-xs text-gray-600 mb-1">Headcount</label>
                     <input
                       type="number"
                       value={lowGMSenior}
@@ -328,11 +472,26 @@
                       min="0"
                     />
                     <div className="text-sm text-gray-600 mt-2 text-center">
-                      Cost: ${(lowGMSenior * lowGMSeniorCost).toLocaleString()}
+                      Base Cost: ${(lowGMSenior * lowGMSeniorCost).toLocaleString()}
+                    </div>
+                    <div className="text-sm font-bold text-gray-800 mt-1 text-center">
+                      Loaded Cost: ${(lowGMSenior * lowGMSeniorLoadedCost).toLocaleString()}
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold mb-2">Junior Consultants ($80k each)</label>
+                    <label className="block text-sm font-semibold mb-2">Junior Consultants</label>
+                    <div className="mb-2">
+                      <label className="block text-xs text-gray-600 mb-1">Base salary per person ($)</label>
+                      <input
+                        type="number"
+                        value={lowGMJuniorCost}
+                        onChange={(e) => setLowGMJuniorCost(parseInt(e.target.value) || 0)}
+                        className="w-full px-3 py-2 border rounded text-sm"
+                        step="1000"
+                        min="0"
+                      />
+                    </div>
+                    <label className="block text-xs text-gray-600 mb-1">Headcount</label>
                     <input
                       type="number"
                       value={lowGMJunior}
@@ -341,16 +500,23 @@
                       min="0"
                     />
                     <div className="text-sm text-gray-600 mt-2 text-center">
-                      Cost: ${(lowGMJunior * lowGMJuniorCost).toLocaleString()}
+                      Base Cost: ${(lowGMJunior * lowGMJuniorCost).toLocaleString()}
+                    </div>
+                    <div className="text-sm font-bold text-gray-800 mt-1 text-center">
+                      Loaded Cost: ${(lowGMJunior * lowGMJuniorLoadedCost).toLocaleString()}
                     </div>
                   </div>
                 </div>
                 
                 <div className="mt-4 p-4 bg-gray-100 rounded">
-                  <div className="grid grid-cols-2 gap-4 text-center">
+                  <div className="grid grid-cols-3 gap-4 text-center">
                     <div>
                       <div className="text-sm text-gray-600">Total Headcount</div>
                       <div className="text-2xl font-bold">{lowGMHeadcount}</div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-gray-600">Avg Comp/Head</div>
+                      <div className="text-2xl font-bold">${Math.round(lowGMAvgComp).toLocaleString()}</div>
                     </div>
                     <div>
                       <div className="text-sm text-gray-600">Total COGS</div>
@@ -403,7 +569,7 @@
               <div className="bg-white rounded-lg shadow-lg p-6">
                 <h2 className="text-xl font-bold mb-4">Hiring Timeline - Aligned to Sales Plan</h2>
                 <p className="text-sm text-gray-600 mb-4">
-                  Starting with {startingHeadcount} people, hiring {netNewHires} more to reach {totalHeadcount} people
+                  Edit the Actual Plan to override the automated model. Remaining months will recalculate.
                 </p>
                 
                 <div className="overflow-x-auto">
@@ -412,30 +578,59 @@
                       <tr>
                         <th className="text-left p-3">Month</th>
                         <th className="text-right p-3">Revenue</th>
-                        <th className="text-right p-3 bg-blue-50">New Hires</th>
-                        <th className="text-right p-3 bg-green-50 font-bold">Total HC</th>
+                        <th className="text-center p-3 bg-gray-200">Model</th>
+                        <th className="text-center p-3 bg-green-50">Actual Plan (Edit)</th>
+                        <th className="text-right p-3 bg-red-50">Terms</th>
+                        <th className="text-right p-3 bg-blue-50">Net Change</th>
+                        <th className="text-right p-3 bg-yellow-50 font-bold">Ending HC</th>
                       </tr>
                     </thead>
                     <tbody>
                       {hiringTimeline.map((row, idx) => (
-                        <tr key={idx} className={`border-b ${row.totalHires > 0 ? 'bg-blue-50' : ''}`}>
+                        <tr key={idx} className="border-b">
                           <td className="p-3 font-semibold">{row.month}</td>
                           <td className="p-3 text-right">{fmt(row.revenue)}</td>
-                          <td className="p-3 text-right font-bold bg-blue-50">{row.totalHires > 0 ? row.totalHires : '-'}</td>
-                          <td className="p-3 text-right font-bold bg-green-50">{row.cumulativeHeadcount}</td>
+                          <td className="p-3 text-center bg-gray-100 text-gray-600">{row.modeledHires || '-'}</td>
+                          <td className="p-3 bg-green-50 text-center">
+                            <input
+                              type="number"
+                              value={row.actualHires}
+                              onChange={(e) => updateMonthlyHire(row.monthKey, e.target.value)}
+                              className={`w-20 px-2 py-1 border-2 rounded text-center font-bold ${row.isOverride ? 'bg-yellow-100 border-yellow-500' : 'bg-white'}`}
+                              min="0"
+                              placeholder={row.modeledHires.toString()}
+                            />
+                          </td>
+                          <td className="p-3 text-right bg-red-50">{row.terms > 0 ? `(${row.terms})` : '-'}</td>
+                          <td className="p-3 text-right font-bold bg-blue-50">
+                            {row.netHires > 0 ? `+${row.netHires}` : row.netHires < 0 ? row.netHires : '-'}
+                          </td>
+                          <td className="p-3 text-right font-bold bg-yellow-50">{row.cumulativeHeadcount}</td>
                         </tr>
                       ))}
+                      <tr className="bg-gray-200 font-bold">
+                        <td className="p-3" colSpan="2">Year Totals</td>
+                        <td className="p-3 text-center bg-gray-300">{hiringTimeline.reduce((sum, row) => sum + row.modeledHires, 0)}</td>
+                        <td className="p-3 text-center bg-green-100">{hiringTimeline.reduce((sum, row) => sum + row.actualHires, 0)}</td>
+                        <td className="p-3 text-right bg-red-100">({hiringTimeline.reduce((sum, row) => sum + row.terms, 0)})</td>
+                        <td className="p-3 text-right bg-blue-100">
+                          {hiringTimeline[11].cumulativeHeadcount - startingHeadcount >= 0 ? '+' : ''}
+                          {hiringTimeline[11].cumulativeHeadcount - startingHeadcount}
+                        </td>
+                        <td className="p-3 text-right bg-yellow-100">{hiringTimeline[11].cumulativeHeadcount}</td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>
                 
                 <div className="mt-4 p-4 bg-blue-50 rounded">
-                  <div className="font-semibold mb-2">Hiring Summary:</div>
+                  <div className="font-semibold mb-2">How to use the Hiring Timeline:</div>
                   <ul className="text-sm space-y-1">
-                    <li>• Starting with {startingHeadcount} existing employees (End of Dec)</li>
-                    <li>• Hiring 13 people in January (→ 66 total)</li>
-                    <li>• Hiring 20 people in February (→ 86 total)</li>
-                    <li>• Continuing to hire as needed to support ${(totalRevenue/1000000).toFixed(1)}M revenue plan at 35% GM</li>
+                    <li>• <strong>Model</strong> column shows the automated hiring plan (evenly distributed)</li>
+                    <li>• <strong>Actual Plan</strong> column is where you override specific months</li>
+                    <li>• When you edit a month, remaining months automatically recalculate to hit your target</li>
+                    <li>• Cells with yellow background indicate your overrides</li>
+                    <li>• Total gross hires planned: <strong>{hiringTimeline.reduce((sum, row) => sum + row.actualHires, 0)} people</strong></li>
                   </ul>
                 </div>
               </div>
