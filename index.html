@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FY26 Headcount & GM Calculator</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState } = React;
+        
+        const GMCalculator = () => {
+          const [totalRevenue, setTotalRevenue] = useState(18529105);
+          const [highGMRevenuePct, setHighGMRevenuePct] = useState(65);
+          const [targetHighGM, setTargetHighGM] = useState(40);
+          const [targetLowGM, setTargetLowGM] = useState(20);
+          const [highGMSenior, setHighGMSenior] = useState(26);
+          const [highGMMid, setHighGMMid] = useState(33);
+          const [lowGMSenior, setLowGMSenior] = useState(12);
+          const [lowGMJunior, setLowGMJunior] = useState(17);
+          const [startingHeadcount, setStartingHeadcount] = useState(53);
+          
+          const highGMSeniorCost = 180000;
+          const highGMMidCost = 120000;
+          const lowGMSeniorCost = 120000;
+          const lowGMJuniorCost = 80000;
+          
+          const monthlySalesPlan = [
+            { month: 'Jan', revenue: 1316023 },
+            { month: 'Feb', revenue: 1630577 },
+            { month: 'Mar', revenue: 1820671 },
+            { month: 'Apr', revenue: 1916537 },
+            { month: 'May', revenue: 1943391 },
+            { month: 'Jun', revenue: 1761971 },
+            { month: 'Jul', revenue: 1522527 },
+            { month: 'Aug', revenue: 1341867 },
+            { month: 'Sep', revenue: 1381267 },
+            { month: 'Oct', revenue: 1332194 },
+            { month: 'Nov', revenue: 1291040 },
+            { month: 'Dec', revenue: 1271040 }
+          ];
+          
+          const highGMRevenue = totalRevenue * (highGMRevenuePct / 100);
+          const lowGMRevenue = totalRevenue - highGMRevenue;
+          
+          const highGMCogs = (highGMSenior * highGMSeniorCost) + (highGMMid * highGMMidCost);
+          const lowGMCogs = (lowGMSenior * lowGMSeniorCost) + (lowGMJunior * lowGMJuniorCost);
+          const totalCogs = highGMCogs + lowGMCogs;
+          
+          const grossProfit = totalRevenue - totalCogs;
+          const gmPercent = (grossProfit / totalRevenue) * 100;
+          
+          const highGMProfit = highGMRevenue - highGMCogs;
+          const highGMMargin = (highGMProfit / highGMRevenue) * 100;
+          
+          const lowGMProfit = lowGMRevenue - lowGMCogs;
+          const lowGMMargin = (lowGMProfit / lowGMRevenue) * 100;
+          
+          const highGMHeadcount = highGMSenior + highGMMid;
+          const lowGMHeadcount = lowGMSenior + lowGMJunior;
+          const totalHeadcount = highGMHeadcount + lowGMHeadcount;
+          const netNewHires = Math.max(0, totalHeadcount - startingHeadcount);
+          
+          const targetGM = 35;
+          const isOnTarget = Math.abs(gmPercent - targetGM) < 0.5;
+          
+          const fmt = (n) => `$${(n / 1000000).toFixed(2)}M`;
+          const fmtPct = (n) => `${n.toFixed(1)}%`;
+          
+          const calculateHiringTimeline = () => {
+            const timeline = [];
+            
+            const janHires = 13;
+            const febHires = 20;
+            
+            let cumulative = startingHeadcount;
+            
+            for (let i = 0; i < 12; i++) {
+              const month = monthlySalesPlan[i].month;
+              let hires = 0;
+              
+              if (month === 'Jan') {
+                hires = janHires;
+                cumulative = 66;
+              } else if (month === 'Feb') {
+                hires = febHires;
+                cumulative = 86;
+              } else if (cumulative < totalHeadcount) {
+                const remaining = totalHeadcount - cumulative;
+                hires = Math.min(5, remaining);
+                cumulative += hires;
+              } else {
+                cumulative = totalHeadcount;
+              }
+              
+              timeline.push({
+                ...monthlySalesPlan[i],
+                totalHires: hires,
+                cumulativeHeadcount: cumulative
+              });
+            }
+            
+            return timeline;
+          };
+          
+          const hiringTimeline = calculateHiringTimeline();
+          
+          return (
+            <div className="w-full max-w-5xl mx-auto p-6 bg-gray-50">
+              <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <h1 className="text-3xl font-bold mb-2">FY26 Headcount & GM Calculator</h1>
+                <p className="text-gray-600">Consulting & Staffing Business | Target: 35% Gross Margin</p>
+              </div>
+              
+              <div className={`rounded-lg p-6 mb-6 border-2 ${isOnTarget ? 'bg-green-50 border-green-400' : 'bg-yellow-50 border-yellow-400'}`}>
+                <div className="grid grid-cols-4 gap-6 text-center mb-4">
+                  <div>
+                    <div className="text-sm text-gray-600 mb-1">Revenue</div>
+                    <div className="text-2xl font-bold">{fmt(totalRevenue)}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-600 mb-1">Total COGS</div>
+                    <div className="text-2xl font-bold">{fmt(totalCogs)}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-600 mb-1">Gross Profit</div>
+                    <div className="text-2xl font-bold">{fmt(grossProfit)}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-600 mb-1">Actual GM%</div>
+                    <div className={`text-4xl font-bold ${isOnTarget ? 'text-green-600' : 'text-red-600'}`}>
+                      {fmtPct(gmPercent)}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">Target: 35%</div>
+                  </div>
+                </div>
+                <div className="text-center pt-4 border-t border-gray-300">
+                  <div className="text-xl font-bold">Total COGS Headcount: {totalHeadcount} people</div>
+                  <div className="text-sm text-gray-600 mt-1">
+                    High GM: {highGMHeadcount} people | Low GM: {lowGMHeadcount} people
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <h2 className="text-xl font-bold mb-4">Revenue Mix & Starting Headcount</h2>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Total Revenue ($)</label>
+                    <input
+                      type="number"
+                      value={totalRevenue}
+                      onChange={(e) => setTotalRevenue(parseFloat(e.target.value) || 0)}
+                      className="w-full px-4 py-2 border rounded text-lg"
+                      step="100000"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">High GM Revenue %</label>
+                    <input
+                      type="number"
+                      value={highGMRevenuePct}
+                      onChange={(e) => setHighGMRevenuePct(parseFloat(e.target.value) || 0)}
+                      className="w-full px-4 py-2 border rounded text-lg"
+                      step="5"
+                      min="0"
+                      max="100"
+                    />
+                    <div className="text-xs text-gray-500 mt-1">
+                      High: {fmt(highGMRevenue)} | Low: {fmt(lowGMRevenue)}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Starting Headcount (End of Dec)</label>
+                    <input
+                      type="number"
+                      value={startingHeadcount}
+                      onChange={(e) => setStartingHeadcount(parseInt(e.target.value) || 0)}
+                      className="w-full px-4 py-2 border rounded text-lg font-bold"
+                      min="0"
+                    />
+                    <div className="text-xs text-gray-500 mt-1">
+                      Net new hires needed: {netNewHires}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <div className="border-l-4 border-green-500 pl-4 mb-4">
+                  <h2 className="text-xl font-bold">High GM Projects - COGS Headcount</h2>
+                </div>
+                
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold mb-2">Target GM% for High GM Projects</label>
+                  <input
+                    type="number"
+                    value={targetHighGM}
+                    onChange={(e) => setTargetHighGM(parseFloat(e.target.value) || 40)}
+                    className="w-full px-4 py-2 border-2 rounded text-lg font-bold"
+                    step="5"
+                    min="0"
+                    max="100"
+                  />
+                </div>
+                
+                <div className="mb-4 p-4 bg-green-50 rounded">
+                  <div className="grid grid-cols-4 gap-4 text-center">
+                    <div>
+                      <div className="text-xs text-gray-600">Revenue</div>
+                      <div className="font-bold">{fmt(highGMRevenue)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-600">COGS</div>
+                      <div className="font-bold">{fmt(highGMCogs)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-600">Actual GM%</div>
+                      <div className={`font-bold ${Math.abs(highGMMargin - targetHighGM) < 1 ? 'text-green-600' : 'text-orange-600'}`}>
+                        {fmtPct(highGMMargin)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-600">Target GM%</div>
+                      <div className="font-bold text-gray-700">{fmtPct(targetHighGM)}</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">Senior Consultants ($180k each)</label>
+                    <input
+                      type="number"
+                      value={highGMSenior}
+                      onChange={(e) => setHighGMSenior(parseInt(e.target.value) || 0)}
+                      className="w-full px-4 py-3 border-2 rounded text-xl font-bold text-center"
+                      min="0"
+                    />
+                    <div className="text-sm text-gray-600 mt-2 text-center">
+                      Cost: ${(highGMSenior * highGMSeniorCost).toLocaleString()}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">Mid-Level Consultants ($120k each)</label>
+                    <input
+                      type="number"
+                      value={highGMMid}
+                      onChange={(e) => setHighGMMid(parseInt(e.target.value) || 0)}
+                      className="w-full px-4 py-3 border-2 rounded text-xl font-bold text-center"
+                      min="0"
+                    />
+                    <div className="text-sm text-gray-600 mt-2 text-center">
+                      Cost: ${(highGMMid * highGMMidCost).toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mt-4 p-4 bg-gray-100 rounded">
+                  <div className="grid grid-cols-2 gap-4 text-center">
+                    <div>
+                      <div className="text-sm text-gray-600">Total Headcount</div>
+                      <div className="text-2xl font-bold">{highGMHeadcount}</div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-gray-600">Total COGS</div>
+                      <div className="text-2xl font-bold">{fmt(highGMCogs)}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <div className="border-l-4 border-orange-500 pl-4 mb-4">
+                  <h2 className="text-xl font-bold">Low GM Projects - COGS Headcount</h2>
+                </div>
+                
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold mb-2">Target GM% for Low GM Projects</label>
+                  <input
+                    type="number"
+                    value={targetLowGM}
+                    onChange={(e) => setTargetLowGM(parseFloat(e.target.value) || 20)}
+                    className="w-full px-4 py-2 border-2 rounded text-lg font-bold"
+                    step="5"
+                    min="0"
+                    max="100"
+                  />
+                </div>
+                
+                <div className="mb-4 p-4 bg-orange-50 rounded">
+                  <div className="grid grid-cols-4 gap-4 text-center">
+                    <div>
+                      <div className="text-xs text-gray-600">Revenue</div>
+                      <div className="font-bold">{fmt(lowGMRevenue)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-600">COGS</div>
+                      <div className="font-bold">{fmt(lowGMCogs)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-600">Actual GM%</div>
+                      <div className={`font-bold ${Math.abs(lowGMMargin - targetLowGM) < 1 ? 'text-green-600' : 'text-orange-600'}`}>
+                        {fmtPct(lowGMMargin)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-600">Target GM%</div>
+                      <div className="font-bold text-gray-700">{fmtPct(targetLowGM)}</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">Senior Consultants ($120k each)</label>
+                    <input
+                      type="number"
+                      value={lowGMSenior}
+                      onChange={(e) => setLowGMSenior(parseInt(e.target.value) || 0)}
+                      className="w-full px-4 py-3 border-2 rounded text-xl font-bold text-center"
+                      min="0"
+                    />
+                    <div className="text-sm text-gray-600 mt-2 text-center">
+                      Cost: ${(lowGMSenior * lowGMSeniorCost).toLocaleString()}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">Junior Consultants ($80k each)</label>
+                    <input
+                      type="number"
+                      value={lowGMJunior}
+                      onChange={(e) => setLowGMJunior(parseInt(e.target.value) || 0)}
+                      className="w-full px-4 py-3 border-2 rounded text-xl font-bold text-center"
+                      min="0"
+                    />
+                    <div className="text-sm text-gray-600 mt-2 text-center">
+                      Cost: ${(lowGMJunior * lowGMJuniorCost).toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mt-4 p-4 bg-gray-100 rounded">
+                  <div className="grid grid-cols-2 gap-4 text-center">
+                    <div>
+                      <div className="text-sm text-gray-600">Total Headcount</div>
+                      <div className="text-2xl font-bold">{lowGMHeadcount}</div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-gray-600">Total COGS</div>
+                      <div className="text-2xl font-bold">{fmt(lowGMCogs)}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <h2 className="text-xl font-bold mb-4">P&L Summary</h2>
+                <div className="space-y-2">
+                  <div className="flex justify-between py-2 border-b">
+                    <span className="font-semibold">Total Revenue</span>
+                    <span className="font-bold">{fmt(totalRevenue)}</span>
+                  </div>
+                  <div className="flex justify-between py-2 text-sm">
+                    <span className="ml-4">• High GM Projects</span>
+                    <span>{fmt(highGMRevenue)} ({fmtPct(highGMRevenuePct)})</span>
+                  </div>
+                  <div className="flex justify-between py-2 text-sm border-b">
+                    <span className="ml-4">• Low GM Projects</span>
+                    <span>{fmt(lowGMRevenue)} ({fmtPct(100 - highGMRevenuePct)})</span>
+                  </div>
+                  
+                  <div className="flex justify-between py-2 border-b">
+                    <span className="font-semibold">Total COGS (People)</span>
+                    <span className="font-bold">{fmt(totalCogs)}</span>
+                  </div>
+                  <div className="flex justify-between py-2 text-sm">
+                    <span className="ml-4">• High GM COGS</span>
+                    <span>{fmt(highGMCogs)} ({highGMHeadcount} people)</span>
+                  </div>
+                  <div className="flex justify-between py-2 text-sm border-b">
+                    <span className="ml-4">• Low GM COGS</span>
+                    <span>{fmt(lowGMCogs)} ({lowGMHeadcount} people)</span>
+                  </div>
+                  
+                  <div className="flex justify-between py-3 font-bold text-lg border-t-2 border-gray-400">
+                    <span>Gross Profit</span>
+                    <span className={isOnTarget ? 'text-green-600' : 'text-red-600'}>{fmt(grossProfit)}</span>
+                  </div>
+                  <div className="flex justify-between py-3 font-bold text-2xl bg-gray-100 px-3 rounded">
+                    <span>Gross Margin %</span>
+                    <span className={isOnTarget ? 'text-green-600' : 'text-red-600'}>{fmtPct(gmPercent)}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-white rounded-lg shadow-lg p-6">
+                <h2 className="text-xl font-bold mb-4">Hiring Timeline - Aligned to Sales Plan</h2>
+                <p className="text-sm text-gray-600 mb-4">
+                  Starting with {startingHeadcount} people, hiring {netNewHires} more to reach {totalHeadcount} people
+                </p>
+                
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="text-left p-3">Month</th>
+                        <th className="text-right p-3">Revenue</th>
+                        <th className="text-right p-3 bg-blue-50">New Hires</th>
+                        <th className="text-right p-3 bg-green-50 font-bold">Total HC</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {hiringTimeline.map((row, idx) => (
+                        <tr key={idx} className={`border-b ${row.totalHires > 0 ? 'bg-blue-50' : ''}`}>
+                          <td className="p-3 font-semibold">{row.month}</td>
+                          <td className="p-3 text-right">{fmt(row.revenue)}</td>
+                          <td className="p-3 text-right font-bold bg-blue-50">{row.totalHires > 0 ? row.totalHires : '-'}</td>
+                          <td className="p-3 text-right font-bold bg-green-50">{row.cumulativeHeadcount}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                
+                <div className="mt-4 p-4 bg-blue-50 rounded">
+                  <div className="font-semibold mb-2">Hiring Summary:</div>
+                  <ul className="text-sm space-y-1">
+                    <li>• Starting with {startingHeadcount} existing employees (End of Dec)</li>
+                    <li>• Hiring 13 people in January (→ 66 total)</li>
+                    <li>• Hiring 20 people in February (→ 86 total)</li>
+                    <li>• Continuing to hire as needed to support ${(totalRevenue/1000000).toFixed(1)}M revenue plan at 35% GM</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          );
+        };
+        
+        ReactDOM.render(<GMCalculator />, document.getElementById('root'));
+    </script>
+</body>
+</html>
